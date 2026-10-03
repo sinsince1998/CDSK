@@ -1,0 +1,1240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>CDSK Board Companion v2.2</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Montserrat + Roboto + JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700;800&family=Montserrat:wght@500;600;700;800;900&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Tone.js for tactile haptic audio effects -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Montserrat', 'Roboto', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            obsidian: '#000000',
+            navySurface: '#001F3F',
+            navySurfaceLight: '#002B54',
+            navyBorder: '#0A3161',
+            deepRed: '#8B0000',
+            deepRedHover: '#A00000',
+            goldAccent: '#E5A93C',
+            goldHover: '#F5B94E',
+            cardC: '#E67E22', // Curious - Amber
+            cardD: '#9B59B6', // Delightful - Purple
+            cardS: '#2ECC71', // Science - Emerald
+            cardK: '#3498DB', // Knowledge - Sapphire
+            cardFin: '#8B0000', // Finish Line - Crimson
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    * {
+      -webkit-tap-highlight-color: transparent;
+      box-sizing: border-box;
+    }
+    body {
+      background-color: #000000;
+      color: #FFFFFF;
+      font-family: 'Montserrat', 'Roboto', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Guaranteed Clickable Class */
+    .unblockable-btn {
+      position: relative;
+      z-index: 9999 !important;
+      pointer-events: auto !important;
+      cursor: pointer !important;
+      touch-action: manipulation !important;
+    }
+
+    /* 3D Tactile Card Deck Effects */
+    .deck-tile {
+      position: relative;
+      transition: transform 0.12s cubic-bezier(0.2, 0.8, 0.4, 1), box-shadow 0.15s ease;
+      touch-action: manipulation;
+      cursor: pointer;
+    }
+    .deck-tile::before, .deck-tile::after {
+      content: '';
+      position: absolute;
+      left: 6px;
+      right: 6px;
+      height: 100%;
+      border-radius: inherit;
+      z-index: -1;
+      transition: transform 0.12s ease;
+    }
+    .deck-tile::before {
+      top: 5px;
+      background: #00172E;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .deck-tile::after {
+      top: 10px;
+      left: 12px;
+      right: 12px;
+      background: #000F1E;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      z-index: -2;
+    }
+    .deck-tile:active {
+      transform: translateY(4px);
+    }
+    .deck-tile:active::before {
+      transform: translateY(-2px);
+    }
+    .deck-tile:active::after {
+      transform: translateY(-4px);
+    }
+
+    /* Glows */
+    .glow-C { box-shadow: 0 10px 28px -6px rgba(230, 126, 34, 0.45); border-color: rgba(230, 126, 34, 0.55); }
+    .glow-D { box-shadow: 0 10px 28px -6px rgba(155, 89, 182, 0.45); border-color: rgba(155, 89, 182, 0.55); }
+    .glow-S { box-shadow: 0 10px 28px -6px rgba(46, 204, 113, 0.45); border-color: rgba(46, 204, 113, 0.55); }
+    .glow-K { box-shadow: 0 10px 28px -6px rgba(52, 152, 219, 0.45); border-color: rgba(52, 152, 219, 0.55); }
+    .glow-FIN { box-shadow: 0 10px 32px -4px rgba(139, 0, 0, 0.7); border-color: #8B0000; }
+
+    /* Category Badges */
+    .badge-C { background: rgba(230, 126, 34, 0.2); color: #F39C12; border: 1px solid rgba(230, 126, 34, 0.4); }
+    .badge-D { background: rgba(155, 89, 182, 0.2); color: #BB8FCE; border: 1px solid rgba(155, 89, 182, 0.4); }
+    .badge-S { background: rgba(46, 204, 113, 0.2); color: #58D68D; border: 1px solid rgba(46, 204, 113, 0.4); }
+    .badge-K { background: rgba(52, 152, 219, 0.2); color: #5DADE2; border: 1px solid rgba(52, 152, 219, 0.4); }
+    .badge-FIN { background: rgba(139, 0, 0, 0.4); color: #FF7676; border: 1px solid #8B0000; }
+
+    .card-enter {
+      animation: flipUp 0.16s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    @keyframes flipUp {
+      from { opacity: 0; transform: translateY(10px) scale(0.99); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+  </style>
+</head>
+
+<body class="flex flex-col justify-between p-3.5 sm:p-5 max-w-xl mx-auto selection:bg-slate-700">
+
+  <!-- Version & Cache-Check Banner (Guarantees user knows if file is cached) -->
+  <div id="versionCheckBanner" class="w-full bg-[#001428] border border-goldAccent/40 rounded-xl px-3 py-1.5 mb-2.5 flex items-center justify-between text-[11px] font-mono shadow-sm">
+    <div class="flex items-center gap-2">
+      <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+      <span class="text-goldAccent font-black">v2.2</span>
+      <span class="text-slate-300">Engine: <span class="text-emerald-300 font-bold">gemini-3.8-flash</span></span>
+    </div>
+    <span class="text-[10px] text-slate-400">Deployed Fresh</span>
+  </div>
+
+  <!-- Top Navigation Header -->
+  <header class="relative z-50 flex items-center justify-between pb-3 border-b border-navyBorder">
+    <div class="flex items-center gap-3 cursor-pointer unblockable-btn" onclick="returnToDecks()" role="button" aria-label="Return to Decks">
+      <div class="font-mono font-black text-2xl tracking-tighter flex items-center">
+        <span class="text-cardC">C</span>
+        <span class="text-cardD">D</span>
+        <span class="text-cardS">S</span>
+        <span class="text-cardK">K</span>
+      </div>
+      <span class="text-[11px] uppercase font-bold tracking-widest text-slate-400 border-l border-navyBorder pl-3">Deck</span>
+    </div>
+
+    <!-- Header Actions -->
+    <div class="flex items-center gap-2">
+      <!-- Deck Mode & Buffer Counter Pill -->
+      <button id="deckStatusPill" onclick="openKeyModal()" type="button" class="unblockable-btn flex items-center gap-2 px-3 py-1.5 rounded-full bg-navySurface border border-navyBorder text-[11px] font-mono text-slate-200 hover:border-goldAccent hover:text-white transition shadow-sm">
+        <span id="deckStatusDot" class="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
+        <span id="deckStatusLabel">Offline Deck</span>
+        <span id="bufferCounter" class="hidden text-[9px] px-1.5 py-0.2 rounded-full bg-slate-800 text-goldAccent font-bold">⚡ Ready</span>
+      </button>
+
+      <!-- Key Modal Button in Header -->
+      <button onclick="openKeyModal()" id="btnKeyTrigger" type="button" aria-label="Configure API Key" class="unblockable-btn p-2.5 rounded-xl bg-navySurface border border-navyBorder text-goldAccent hover:text-white hover:border-goldAccent hover:bg-navySurfaceLight transition active:scale-95 shadow-md">
+        <i data-lucide="key-round" class="w-4 h-4 pointer-events-none"></i>
+      </button>
+
+      <!-- Return to Grid Button -->
+      <button onclick="returnToDecks()" type="button" aria-label="Home / Decks" class="unblockable-btn p-2.5 rounded-xl bg-navySurface border border-navyBorder text-slate-300 hover:text-white hover:border-slate-400 transition active:scale-95">
+        <i data-lucide="layout-grid" class="w-4 h-4 pointer-events-none"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Live Toast Alert Banner -->
+  <div id="statusToast" class="hidden transition-all duration-200 mt-2 p-3.5 rounded-2xl text-xs font-mono font-bold flex items-center justify-between border shadow-lg">
+    <div class="flex items-center gap-2.5 flex-1 mr-2">
+      <i id="toastIcon" data-lucide="info" class="w-4 h-4 flex-shrink-0"></i>
+      <span id="toastMessage" class="break-words leading-tight">Notice message</span>
+    </div>
+    <button onclick="hideToast()" type="button" class="unblockable-btn p-1 text-slate-400 hover:text-white flex-shrink-0">
+      <i data-lucide="x" class="w-3.5 h-3.5"></i>
+    </button>
+  </div>
+
+  <main class="flex-1 flex flex-col justify-center py-4">
+
+    <!-- VIEW 1: 5 Decks Grid View -->
+    <div id="viewDecks" class="flex flex-col gap-3.5 card-enter">
+      
+      <div class="grid grid-cols-2 gap-3.5 sm:gap-4">
+        <!-- C - Curious -->
+        <button onclick="pickDeck('C')" type="button" class="deck-tile p-5 rounded-3xl bg-navySurface border border-cardC/50 text-left flex flex-col justify-between h-44 glow-C group unblockable-btn">
+          <div class="flex justify-between items-start">
+            <span class="text-4xl font-black text-cardC tracking-tight group-hover:scale-105 transition-transform">C</span>
+            <div class="flex items-center gap-1.5">
+              <span id="bufTag-C" class="hidden text-[9px] font-mono font-black text-emerald-400">⚡</span>
+              <span class="badge-C text-[10px] font-mono font-bold px-2 py-0.5 rounded-full">Curious</span>
+            </div>
+          </div>
+          <div>
+            <h2 class="text-lg font-black text-white">Curious</h2>
+            <p class="text-[11px] text-slate-400 font-medium leading-snug mt-0.5">Oddities, Heists, Ancient Laws & Unsolved Lore</p>
+          </div>
+        </button>
+
+        <!-- D - Delightful -->
+        <button onclick="pickDeck('D')" type="button" class="deck-tile p-5 rounded-3xl bg-navySurface border border-cardD/50 text-left flex flex-col justify-between h-44 glow-D group unblockable-btn">
+          <div class="flex justify-between items-start">
+            <span class="text-4xl font-black text-cardD tracking-tight group-hover:scale-105 transition-transform">D</span>
+            <div class="flex items-center gap-1.5">
+              <span id="bufTag-D" class="hidden text-[9px] font-mono font-black text-emerald-400">⚡</span>
+              <span class="badge-D text-[10px] font-mono font-bold px-2 py-0.5 rounded-full">Delightful</span>
+            </div>
+          </div>
+          <div>
+            <h2 class="text-lg font-black text-white">Delightful</h2>
+            <p class="text-[11px] text-slate-400 font-medium leading-snug mt-0.5">Gaming, Punjabi Hits, Bollywood & Hip-Hop</p>
+          </div>
+        </button>
+
+        <!-- S - Science -->
+        <button onclick="pickDeck('S')" type="button" class="deck-tile p-5 rounded-3xl bg-navySurface border border-cardS/50 text-left flex flex-col justify-between h-44 glow-S group unblockable-btn">
+          <div class="flex justify-between items-start">
+            <span class="text-4xl font-black text-cardS tracking-tight group-hover:scale-105 transition-transform">S</span>
+            <div class="flex items-center gap-1.5">
+              <span id="bufTag-S" class="hidden text-[9px] font-mono font-black text-emerald-400">⚡</span>
+              <span class="badge-S text-[10px] font-mono font-bold px-2 py-0.5 rounded-full">Science</span>
+            </div>
+          </div>
+          <div>
+            <h2 class="text-lg font-black text-white">Science</h2>
+            <p class="text-[11px] text-slate-400 font-medium leading-snug mt-0.5">Cosmos, Hardware, Biology & Extreme Physics</p>
+          </div>
+        </button>
+
+        <!-- K - Knowledge -->
+        <button onclick="pickDeck('K')" type="button" class="deck-tile p-5 rounded-3xl bg-navySurface border border-cardK/50 text-left flex flex-col justify-between h-44 glow-K group unblockable-btn">
+          <div class="flex justify-between items-start">
+            <span class="text-4xl font-black text-cardK tracking-tight group-hover:scale-105 transition-transform">K</span>
+            <div class="flex items-center gap-1.5">
+              <span id="bufTag-K" class="hidden text-[9px] font-mono font-black text-emerald-400">⚡</span>
+              <span class="badge-K text-[10px] font-mono font-bold px-2 py-0.5 rounded-full">Knowledge</span>
+            </div>
+          </div>
+          <div>
+            <h2 class="text-lg font-black text-white">Knowledge</h2>
+            <p class="text-[11px] text-slate-400 font-medium leading-snug mt-0.5">Empires, Chokepoints, Battles & Geopolitics</p>
+          </div>
+        </button>
+      </div>
+
+      <!-- FINISH LINE GAUNTLET BUTTON -->
+      <button onclick="pickDeck('FIN')" type="button" class="deck-tile w-full p-4 sm:p-5 rounded-3xl bg-[#000E1D] border border-deepRed text-left flex items-center justify-between glow-FIN group unblockable-btn">
+        <div class="flex items-center gap-3.5">
+          <div class="w-12 h-12 rounded-2xl bg-deepRed/30 border border-deepRed flex items-center justify-center text-rose-300">
+            <i data-lucide="flag-triangle-right" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="text-lg font-black text-white">The Finish Line</h2>
+              <span id="bufTag-FIN" class="hidden text-[9px] font-mono font-black text-emerald-400">⚡</span>
+              <span class="badge-FIN px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase">Gauntlet</span>
+            </div>
+            <p class="text-[11px] text-slate-400 font-medium">4-Way Showdown (C, D, S, K) to win the game</p>
+          </div>
+        </div>
+        <i data-lucide="chevron-right" class="w-5 h-5 text-rose-400 group-hover:translate-x-1 transition-transform"></i>
+      </button>
+
+      <!-- UNMISSABLE DIRECT API KEY TRIGGER BAR (Guarantees no user gets stuck) -->
+      <div class="w-full p-3.5 rounded-2xl bg-gradient-to-r from-[#00172E] to-[#00254D] border border-goldAccent/40 flex items-center justify-between gap-3 shadow-lg">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-xl bg-goldAccent/20 flex items-center justify-center text-goldAccent">
+            <i data-lucide="key" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <span class="text-xs font-bold text-white block">Gemini API Infinite Deck</span>
+            <span id="apiKeyStatusSubtitle" class="text-[10px] text-slate-400 font-mono">Status: Offline Vault Active</span>
+          </div>
+        </div>
+        <button onclick="openKeyModal()" type="button" class="unblockable-btn px-4 py-2 rounded-xl bg-goldAccent hover:bg-goldHover text-black font-mono font-black text-xs shadow-md transition active:scale-95 flex items-center gap-1.5">
+          <i data-lucide="settings" class="w-3.5 h-3.5 pointer-events-none"></i> Set API Key
+        </button>
+      </div>
+
+    </div>
+
+    <!-- VIEW 2: Active 1-10 Card Interface -->
+    <div id="viewActiveCard" class="hidden flex-col gap-4 card-enter">
+      <div id="cardShell" class="p-5 sm:p-7 rounded-3xl bg-navySurface border transition-all flex flex-col justify-between min-h-[490px]">
+        
+        <!-- Header -->
+        <div>
+          <div class="flex items-start justify-between pb-3.5 border-b border-navyBorder">
+            <div>
+              <div class="flex items-center gap-2 mb-1">
+                <span id="activeBadge" class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-black uppercase tracking-wider">C</span>
+                <span id="activeSubcategory" class="text-xs font-mono font-bold text-slate-400">Subcategory</span>
+                <span id="cardSourcePill" class="hidden text-[9px] font-mono px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700">⚡ Instant</span>
+              </div>
+              <h1 id="activeTopicTitle" class="text-2xl sm:text-3xl font-black text-white tracking-tight leading-tight">Topic Title</h1>
+            </div>
+            <button onclick="returnToDecks()" type="button" aria-label="Close Card" class="unblockable-btn p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition">
+              <i data-lucide="x" class="w-5 h-5 pointer-events-none"></i>
+            </button>
+          </div>
+
+          <!-- Loading Spinner -->
+          <div id="cardLoadingOverlay" class="hidden flex-col items-center justify-center py-12 gap-3">
+            <div class="w-10 h-10 border-4 border-slate-700 border-t-goldAccent rounded-full animate-spin"></div>
+            <span class="text-xs font-mono font-bold text-slate-300 animate-pulse">Generating New Card via gemini-3.8-flash...</span>
+          </div>
+
+          <!-- Main Card Content -->
+          <div id="cardContentBody">
+            <div class="py-3 flex items-center justify-between">
+              <span class="text-xs font-semibold text-slate-300">Rate self-confidence:</span>
+              <span id="ratePromptHint" class="font-mono text-xs font-bold text-goldAccent">Pick 1 – 10 below</span>
+            </div>
+
+            <!-- 1-10 Push-Your-Luck Selector -->
+            <div class="grid grid-cols-5 sm:grid-cols-10 gap-1.5 sm:gap-2 pb-4 border-b border-navyBorder">
+              <button onclick="selectLevel(1)" type="button" id="btn-lvl-1" class="lvl-btn unblockable-btn py-3 rounded-xl font-mono font-bold text-sm bg-[#00172E] border border-navyBorder text-slate-300 active:scale-95 transition">1</button>
+              <button onclick="selectLevel(2)" type="button" id="btn-lvl-2" class="lvl-btn unblockable-btn py-3 rounded-xl font-mono font-bold text-sm bg-[#00172E] border border-navyBorder text-slate-300 active:scale-95 transition">2</button>
+              <button onclick="selectLevel(3)" type="button" id="btn-lvl-3" class="lvl-btn unblockable-btn py-3 rounded-xl font-mono font-bold text-sm bg-[#00172E] border border-navyBorder text-slate-300 active:scale-95 transition">3</button>
+              <button onclick="selectLevel(4)" type="button" id="btn-lvl-4" class="lvl-btn unblockable-btn py-3 rounded-xl font-mono font-bold text-sm bg-[#00172E] border border-navyBorder text-slate-300 active:scale-95 transition">4</button>
+              <button onclick="selectLevel(5)" type="button" id="btn-lvl-5" class="lvl-btn unblockable-btn py-3 rounded-xl font-mono font-bold text-sm bg-[#00172E] border border-navyBorder text-slate-300 active:scale-95 transition">5</button>
+              <button onclick="selectLevel(6)" type="button" id="btn-lvl-6" class="lvl-btn unblockable-btn py-3 rounded-xl font-mono font-bold text-sm bg-[#00172E] border border-navyBorder text-slate-300 active:scale-95 transition">6</button>
+              <button onclick="selectLevel(7)" type="button" id="btn-lvl-7" class="lvl-btn unblockable-btn py-3 rounded-xl font-mono font-bold text-sm bg-[#00172E] border border-navyBorder text-slate-300 active:scale-95 transition">7</button>
+              <button onclick="selectLevel(8)" type="button" id="btn-lvl-8" class="lvl-btn unblockable-btn py-3 rounded-xl font-mono font-bold text-sm bg-[#00172E] border border-navyBorder text-slate-300 active:scale-95 transition">8</button>
+              <button onclick="selectLevel(9)" type="button" id="btn-lvl-9" class="lvl-btn unblockable-btn py-3 rounded-xl font-mono font-bold text-sm bg-[#00172E] border border-navyBorder text-slate-300 active:scale-95 transition">9</button>
+              <button onclick="selectLevel(10)" type="button" id="btn-lvl-10" class="lvl-btn unblockable-btn py-3 rounded-xl font-mono font-bold text-sm bg-[#00172E] border border-navyBorder text-slate-300 active:scale-95 transition">10</button>
+            </div>
+
+            <!-- Dynamic Question Display -->
+            <div class="py-5 min-h-[140px] flex flex-col justify-center">
+              <span id="levelSelectedTag" class="text-[11px] font-mono uppercase tracking-wider text-slate-400 font-bold mb-1 hidden"></span>
+              <p id="questionDisplay" class="text-base sm:text-lg font-medium text-slate-400 italic leading-relaxed">
+                Agree on your wager from 1 to 10 above to reveal the question.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Controls Footer -->
+        <div id="cardFooterControls" class="pt-4 border-t border-navyBorder flex flex-col gap-3">
+          
+          <!-- Answer Reveal Section -->
+          <div id="answerSection" class="hidden">
+            <button id="btnRevealAnswer" onclick="revealAnswer()" type="button" class="unblockable-btn w-full py-3.5 px-4 rounded-2xl bg-[#00172E] hover:bg-[#002B54] border border-navyBorder text-center font-mono font-bold text-xs text-slate-200 flex items-center justify-center gap-2 active:scale-95 transition">
+              <i data-lucide="eye" class="w-4 h-4 text-slate-400 pointer-events-none"></i> Reveal Official Answer
+            </button>
+            <div id="answerRevealedBox" class="hidden p-4 rounded-2xl bg-emerald-950/70 border border-emerald-600/70 text-center">
+              <span class="text-[10px] font-mono uppercase tracking-widest text-emerald-400 font-bold block mb-1">Official Answer</span>
+              <p id="answerRevealedText" class="text-base sm:text-lg font-black text-emerald-200"></p>
+            </div>
+          </div>
+
+          <!-- Movement / Outcome Section -->
+          <div id="outcomeSection" class="hidden flex items-center gap-2 pt-1">
+            <button onclick="recordTurn(false)" type="button" class="unblockable-btn flex-1 py-3 px-3 rounded-2xl bg-deepRed/30 hover:bg-deepRed/60 border border-deepRed text-rose-300 text-xs font-bold font-mono active:scale-95 transition">
+              Missed (0)
+            </button>
+            <button onclick="recordTurn(true)" id="btnCorrectOutcome" type="button" class="unblockable-btn flex-1 py-3 px-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black font-mono shadow-lg shadow-emerald-950/60 active:scale-95 transition">
+              Correct! (+0 on board)
+            </button>
+          </div>
+
+          <!-- Bottom Action Buttons -->
+          <div class="flex items-center gap-2">
+            <button id="btnRedraw" onclick="redrawCurrentDeck()" type="button" class="unblockable-btn flex-1 py-3 px-3 rounded-2xl bg-[#00172E] hover:bg-[#002B54] border border-navyBorder text-slate-300 hover:text-white text-xs font-bold font-mono flex items-center justify-center gap-2 active:scale-95 transition">
+              <i id="redrawIcon" data-lucide="refresh-cw" class="w-3.5 h-3.5 pointer-events-none"></i>
+              <span id="redrawLabel">Redraw Card</span>
+            </button>
+            <button onclick="returnToDecks()" type="button" class="unblockable-btn flex-1 py-3 px-3 rounded-2xl bg-[#00254D] hover:bg-[#003B7A] text-slate-100 text-xs font-bold font-mono flex items-center justify-center gap-1.5 active:scale-95 transition">
+              <i data-lucide="arrow-left" class="w-3.5 h-3.5 pointer-events-none"></i> All Decks
+            </button>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+    <!-- VIEW 3: Finish Line Gauntlet View -->
+    <div id="viewFinCard" class="hidden flex-col gap-4 card-enter">
+      <div class="p-5 sm:p-7 rounded-3xl bg-[#000E1D] border border-deepRed glow-FIN flex flex-col justify-between min-h-[490px]">
+        <div>
+          <div class="flex items-start justify-between pb-3.5 border-b border-deepRed/40">
+            <div>
+              <span class="badge-FIN px-2.5 py-0.5 rounded-full text-[10px] font-mono font-black uppercase">Finish Line Gauntlet</span>
+              <h1 id="finThemeTitle" class="text-2xl sm:text-3xl font-black text-rose-200 tracking-tight mt-1">Theme Title</h1>
+            </div>
+            <button onclick="returnToDecks()" type="button" aria-label="Close" class="unblockable-btn p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition">
+              <i data-lucide="x" class="w-5 h-5 pointer-events-none"></i>
+            </button>
+          </div>
+
+          <p class="text-xs text-rose-200/90 font-medium my-3">
+            To claim victory on the physical board, answer at least <strong class="text-white underline">3 out of the 4</strong> category questions:
+          </p>
+
+          <div id="finQuestionsList" class="space-y-3 my-2"></div>
+        </div>
+
+        <div class="pt-4 border-t border-deepRed/40 flex items-center gap-2">
+          <button onclick="pickDeck('FIN', true)" type="button" class="unblockable-btn flex-1 py-3.5 rounded-2xl bg-[#00172E] border border-deepRed/50 hover:bg-deepRed/30 text-rose-300 text-xs font-bold font-mono active:scale-95 transition flex items-center justify-center gap-2">
+            <i data-lucide="refresh-cw" class="w-4 h-4 pointer-events-none"></i> Redraw Gauntlet
+          </button>
+          <button onclick="returnToDecks()" type="button" class="unblockable-btn flex-1 py-3.5 rounded-2xl bg-deepRed hover:bg-deepRedHover text-white text-xs font-black font-mono shadow-lg shadow-deepRed/50 active:scale-95 transition">
+            Finish Game
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Direct, Guaranteed Modal Dialog (z-[100000]) -->
+  <div id="keyModal" class="fixed inset-0 z-[100000] bg-black/90 backdrop-blur-md hidden items-center justify-center p-4">
+    <div class="w-full max-w-md bg-navySurface border border-navyBorder rounded-3xl p-6 shadow-2xl flex flex-col gap-4 card-enter">
+      <div class="flex items-center justify-between pb-3 border-b border-navyBorder">
+        <h3 class="font-black text-lg text-white flex items-center gap-2">
+          <i data-lucide="zap" class="w-4 h-4 text-goldAccent pointer-events-none"></i> Infinite Deck Engine
+        </h3>
+        <button onclick="closeKeyModal()" type="button" aria-label="Close Modal" class="unblockable-btn text-slate-400 hover:text-white p-1">
+          <i data-lucide="x" class="w-5 h-5 pointer-events-none"></i>
+        </button>
+      </div>
+
+      <div>
+        <label for="inputApiKey" class="block text-xs font-bold text-slate-300 mb-1">Google Gemini API Key</label>
+        <div class="flex gap-2">
+          <input type="password" id="inputApiKey" placeholder="AIzaSy..." class="flex-1 bg-[#001224] border border-navyBorder px-3.5 py-2.5 rounded-xl text-xs text-slate-100 font-mono focus:outline-none focus:border-goldAccent">
+          <button onclick="testApiConnection()" id="btnTestKey" type="button" class="unblockable-btn px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-xs font-mono font-bold text-slate-200 active:scale-95 transition flex items-center gap-1.5 flex-shrink-0">
+            <i id="testKeyIcon" data-lucide="activity" class="w-3.5 h-3.5 pointer-events-none"></i> Test Key
+          </button>
+        </div>
+        
+        <!-- Live Diagnostic Box -->
+        <div id="diagBox" class="hidden mt-2.5 p-3 rounded-xl text-[11px] font-mono border">
+          <div class="flex items-center gap-2 font-bold mb-1">
+            <span id="diagBadge">CHECKING</span>
+            <span id="diagTitle">Diagnostic Response</span>
+          </div>
+          <p id="diagDetails" class="text-slate-300 break-words leading-tight"></p>
+        </div>
+
+        <p class="text-[11px] text-slate-400 mt-2 leading-relaxed">
+          Powered directly by <strong>gemini-3.8-flash</strong>. Silent background buffer keeps draws instant (0ms).
+        </p>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2 text-xs font-mono">
+        <div class="p-3 rounded-2xl bg-[#001224] border border-navyBorder flex flex-col justify-between">
+          <span class="text-slate-400 text-[10px]">Cards in Vault:</span>
+          <span id="modalVaultCount" class="font-bold text-goldAccent text-base mt-1">0</span>
+        </div>
+        <div class="p-3 rounded-2xl bg-[#001224] border border-navyBorder flex flex-col justify-between">
+          <span class="text-slate-400 text-[10px]">Buffered Queued:</span>
+          <span id="modalBufferCount" class="font-bold text-emerald-400 text-base mt-1">0</span>
+        </div>
+      </div>
+
+      <div class="flex gap-2 pt-2 border-t border-navyBorder">
+        <button onclick="clearApiKey()" type="button" class="unblockable-btn py-2.5 px-3 rounded-xl bg-[#001224] hover:bg-slate-900 border border-navyBorder text-xs font-bold text-slate-400">
+          Remove Key
+        </button>
+        <button onclick="saveApiKey()" type="button" class="unblockable-btn flex-1 py-2.5 rounded-xl bg-goldAccent hover:bg-goldHover text-black text-xs font-black shadow-md">
+          Save & Enable
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* Audio synthesizer feedback */
+    let audioSynth = null;
+    function playBeep(freq = 440, type = "triangle", duration = "16n") {
+      try {
+        if (!audioSynth && window.Tone) {
+          audioSynth = new Tone.Synth({
+            oscillator: { type },
+            envelope: { attack: 0.005, decay: 0.06, sustain: 0.04, release: 0.06 }
+          }).toDestination();
+        }
+        if (window.Tone && Tone.context.state !== 'running') {
+          Tone.start();
+        }
+        if (audioSynth) audioSynth.triggerAttackRelease(freq, duration);
+      } catch(e) {}
+    }
+
+    /* Calibrated Offline Master Deck with Lateral Deductive Clues (6-10) */
+    const STARTER_PACK = [
+      {
+        id: "D-001",
+        category: "D",
+        category_name: "Delightful",
+        subcategory: "Post-1990 Gaming",
+        topic: "Soulsborne & FromSoftware Lore",
+        levels: [
+          { level: 1, question: "Which Japanese director is the visionary creator behind Dark Souls, Bloodborne, and Elden Ring?", answer: "Hidetaka Miyazaki" },
+          { level: 2, question: "In Dark Souls, what primary healing item is refilled whenever you rest at a bonfire?", answer: "Estus Flask" },
+          { level: 3, question: "Which gothic horror FromSoftware title takes place in the cursed, plague-ridden city of Yharnam?", answer: "Bloodborne" },
+          { level: 4, question: "In Elden Ring, what spectral steed is summoned with the whistle to traverse the Lands Between?", answer: "Torrent" },
+          { level: 5, question: "Which cathedral boss fight in Anor Londo forces you to battle a dragonslayer spearman and a giant executioner at the same time?", answer: "Ornstein and Smough" },
+          { level: 6, question: "In Sekiro, Wolf's prosthetic limb is fitted by a reclusive carver who once fought under the name of a reddish-orange tree-dwelling primate. What was his alias?", answer: "The Orangutan (Sekijo / The Sculptor)" },
+          { level: 7, question: "Which bald trickster across multiple FromSoftware games begs for forgiveness after kicking you into pits, bearing a name that sounds like rough scraps sewn together to fix a tear?", answer: "Trusty Patches (Patches)" },
+          { level: 8, question: "In Dark Souls, which mutated daughter of chaos can only speak through a ring that translates the silent weeping of a gentle, pale lady?", answer: "The Fair Lady (Quelaag's Sister)" },
+          { level: 9, question: "In Elden Ring, which colossal red-haired general learned gravitational magic so his enormous bulk would never crush his scrawny childhood horse Leonard?", answer: "Starscourge Radahn" },
+          { level: 10, question: "First appearing in 1994's King's Field, what glowing sword takes its name from Earth's only natural satellite bathed in pale evening glow?", answer: "Moonlight Greatsword" }
+        ]
+      },
+      {
+        id: "D-002",
+        category: "D",
+        category_name: "Delightful",
+        subcategory: "Punjabi Music",
+        topic: "Punjabi Music Culture & Global Waves",
+        levels: [
+          { level: 1, question: "Which late Punjabi lyricist and artist dominated international streaming charts with songs like '295' and 'The Last Ride'?", answer: "Sidhu Moose Wala" },
+          { level: 2, question: "What two-sided barrel drum provides the signature heartbeat and driving rhythm of Bhangra music?", answer: "Dhol" },
+          { level: 3, question: "Which Vancouver-based group featuring AP Dhillon and Gurinder Gill broke international records with the viral anthem 'Brown Munde'?", answer: "Run-Up Records / AP Dhillon" },
+          { level: 4, question: "Known as the 'Elvis of Punjab', which iconic folk singer was tragically assassinated alongside stage partner Amarjot in 1988?", answer: "Amar Singh Chamkila" },
+          { level: 5, question: "Which Ludhiana-born hitmaker created the chart-topping album Making Memories featuring 'Softly'?", answer: "Karan Aujla" },
+          { level: 6, question: "Which folk legend—celebrated for his soaring high pitch and epic kaliyan ballads—popularized the single-stringed plucked tumbi across Punjab?", answer: "Kuldeep Manak" },
+          { level: 7, question: "In 2023, which superstar became the very first Punjabi musical artist to perform live at California's famous desert Coachella music festival?", answer: "Diljit Dosanjh" },
+          { level: 8, question: "In 1998, which UK-based Punjabi icon joined producer Bally Sagoo to create the wedding dancefloor anthem 'Gud Naal Ishq Mitha'?", answer: "Malkit Singh" },
+          { level: 9, question: "Which Birmingham producer transformed modern Bhangra by fusing Western hip-hop breaks with dhol alongside vocalist Jazzy B?", answer: "Sukshinder Shinda" },
+          { level: 10, question: "Sidhu Moose Wala's iconic song '295' takes its title directly from which numerical section of the legal penal code concerning religious insult?", answer: "Section 295A (or 295)" }
+        ]
+      },
+      {
+        id: "D-003",
+        category: "D",
+        category_name: "Delightful",
+        subcategory: "Bollywood & Cinema",
+        topic: "Bollywood Antagonists & Cult Classics",
+        levels: [
+          { level: 1, question: "Which superstar was immortalized as Bollywood's 'Angry Young Man' through 1970s blockbusters like Zanjeer and Deewaar?", answer: "Amitabh Bachchan" },
+          { level: 2, question: "In the 1975 classic Sholay, which dacoit famously asks his trembling gang, 'Kitne aadmi the?'", answer: "Gabbar Singh" },
+          { level: 3, question: "Which 2001 sports epic starring Aamir Khan saw Victorian-era Indian villagers play a high-stakes cricket match to cancel British land taxes?", answer: "Lagaan" },
+          { level: 4, question: "In 1987's Mr. India, what was the name of Amrish Puri's eccentric supervillain who celebrated triumph with 'Mogambo khush hua'?", answer: "Mogambo" },
+          { level: 5, question: "In Anurag Kashyap's Gangs of Wasseypur, which vengeful coal mafia boss is played by Manoj Bajpayee?", answer: "Sardar Khan" },
+          { level: 6, question: "In 1993's Darr, Shah Rukh Khan turned what female name into an infamous obsessive stutter across phone lines?", answer: "Kiran" },
+          { level: 7, question: "In Sholay, the village belle Basanti is ordered to dance upon broken glass beneath the scorching sun to save the life of her imprisoned lover. What was his name?", answer: "Veeru" },
+          { level: 8, question: "In Ram Gopal Varma's 1998 underworld drama Satya, which volatile gangster famously declared himself 'Mumbai ka King' atop a seaside cliff?", answer: "Bhiku Mhatre" },
+          { level: 9, question: "Which celebrated screenwriting duo penned Sholay, Deewaar, and Don before famously dissolving their joint partnership in 1982?", answer: "Salim-Javed (Salim Khan & Javed Akhtar)" },
+          { level: 10, question: "In Guru Dutt's 1957 classic Pyaasa, which real-world Urdu poet wrote the scathing lyrics for 'Yeh Mehlon, Yeh Takhton'?", answer: "Sahir Ludhianvi" }
+        ]
+      },
+      {
+        id: "C-001",
+        category: "C",
+        category_name: "Curious",
+        subcategory: "Audacious Heists",
+        topic: "The 2003 Antwerp Diamond Vault Heist",
+        levels: [
+          { level: 1, question: "Which European country's diamond trading capital was the target of the audacious 2003 vault heist?", answer: "Belgium" },
+          { level: 2, question: "Did the massive vault door combination wheel contain three, ten, or a hundred dials?", answer: "Ten" },
+          { level: 3, question: "What was the Italian first name of ringleader Notarbartolo, who shares his name with Renaissance genius da Vinci?", answer: "Leonardo" },
+          { level: 4, question: "What everyday construction aerosol spray, commonly used to seal gaps around window frames, was sprayed onto seismic sensors to muffle floor vibrations?", answer: "Expanding foam (insulation foam)" },
+          { level: 5, question: "What common dark, sticky office adhesive tape was slapped over the vault's infrared thermal motion sensors to blind them?", answer: "Electrical tape" },
+          { level: 6, question: "The heist crew belonged to a secretive Italian ring of thieves named after which northern Italian city that hosted the 2006 Winter Olympics?", answer: "The School of Turin (Turin)" },
+          { level: 7, question: "The mastermind was undone when an accomplice dumped trash—including a half-eaten sandwich made of what cured, spiced Italian pork sausage—beside a Belgian highway?", answer: "Salami (salami sandwich)" },
+          { level: 8, question: "To duplicate the foot-long physical vault key, the ringleader hid a microscopic camera inside what common ink desk writing instrument?", answer: "A ballpoint pen" },
+          { level: 9, question: "The magnetic door alarm was defeated by placing custom metal plates to trick two components that naturally snap together with north and south poles. What are they?", answer: "Magnets (magnetic contact sensors)" },
+          { level: 10, question: "The vault's security was overseen by the Diamond High Council, universally known by which three-letter French/Dutch acronym that sounds like an HR department?", answer: "HRD (Hoge Raad voor Diamant)" }
+        ]
+      },
+      {
+        id: "S-001",
+        category: "S",
+        category_name: "Science",
+        subcategory: "Astrophysics & Cosmos",
+        topic: "Black Holes & Event Horizons",
+        levels: [
+          { level: 1, question: "What invisible cosmic boundary around a black hole marks the perimeter where nothing, not even light, can escape?", answer: "Event Horizon" },
+          { level: 2, question: "Which German-born physicist formulated General Relativity, laying the theoretical foundation for gravitational collapse?", answer: "Albert Einstein" },
+          { level: 3, question: "What supermassive black hole sits at the core of our Milky Way, sharing its name with the zodiac's archer constellation?", answer: "Sagittarius A*" },
+          { level: 4, question: "What is the single, zero-volume point of infinite density at the very heart of a black hole called?", answer: "A Singularity" },
+          { level: 5, question: "Which British physicist, who communicated through a synthesized speech device, proved that black holes slowly leak quantum radiation?", answer: "Stephen Hawking" },
+          { level: 6, question: "Light escaping from near a black hole loses energy and stretches toward the warm, long-wavelength end of the rainbow. What is this color shift called?", answer: "Gravitational Redshift" },
+          { level: 7, question: "The swirling disk of gas friction-heated to millions of degrees as it spirals into the black hole shares its name with the botanical process of growing together or accumulating mass. What is this disk called?", answer: "Accretion Disk" },
+          { level: 8, question: "In 2019, which global array of synchronized radio dishes—sharing its exact two-word name with the black hole's boundary perimeter—captured the first direct shadow of M87?", answer: "Event Horizon Telescope (EHT)" },
+          { level: 9, question: "Which German astronomer, whose surname literally translates into English as 'black-shield', calculated the exact radius formula for a non-spinning horizon?", answer: "Karl Schwarzschild" },
+          { level: 10, question: "Which famous physics theorem playfully asserts that black holes have 'no hair'—meaning they only retain mass, charge, and spin without keeping any other messy traits?", answer: "The No-Hair Theorem" }
+        ]
+      },
+      {
+        id: "K-001",
+        category: "K",
+        category_name: "Knowledge",
+        subcategory: "Geopolitics & Chokepoints",
+        topic: "Strategic Maritime Straits & Canals",
+        levels: [
+          { level: 1, question: "Which artificial waterway across Egypt connects the Mediterranean Sea to the Red Sea, saving ships from circling Africa?", answer: "The Suez Canal" },
+          { level: 2, question: "Which famous narrow strait separates Spain from Morocco, overlooked by a legendary limestone 'Rock'?", answer: "The Strait of Gibraltar" },
+          { level: 3, question: "Located between Iran and Oman, which narrow strait carries roughly a fifth of the world's petroleum tanker traffic?", answer: "The Strait of Hormuz" },
+          { level: 4, question: "Which channel between Malaysia, Indonesia, and Singapore is the busiest shipping lane connecting the Indian and Pacific Oceans?", answer: "The Strait of Malacca" },
+          { level: 5, question: "What historic strait divides the city of Istanbul, historically separating the European continent from Asia?", answer: "The Bosphorus" },
+          { level: 6, question: "Which stormy passage south of Cape Horn—frequently called the roughest sea in the world—shares its name with the Elizabethan privateer who circumnavigated the globe on the Golden Hind?", answer: "Drake Passage (Francis Drake)" },
+          { level: 7, question: "Which shallow, disputed channel between Crimea and Russia connects the Sea of Azov to the Black Sea, sharing its name with a local peninsula starting with the letter K?", answer: "The Kerch Strait" },
+          { level: 8, question: "Under which 1936 Swiss lakeside convention—named after the town famous for its jazz festival—does Turkey govern naval warship transit through its straits?", answer: "The Montreux Convention" },
+          { level: 9, question: "Which southern Red Sea chokepoint between Djibouti and Yemen bears an Arabic name that dramatically translates into English as the 'Gate of Tears'?", answer: "Bab-el-Mandeb" },
+          { level: 10, question: "Which deep Indonesian channel between Bali and Lombok marks the biogeographic line named after the co-discoverer of evolution who formulated it alongside Darwin?", answer: "The Lombok Strait (The Wallace Line)" }
+        ]
+      },
+      {
+        id: "FIN-001",
+        category: "FIN",
+        category_name: "Finish Line",
+        theme: "Gold & Greed",
+        questions: [
+          { type: "C", label: "Curious", question: "Which mythical South American golden city lured dozens of Spanish conquistadors into fatal jungle expeditions?", answer: "El Dorado" },
+          { type: "D", label: "Delightful", question: "Which 1995 Pierce Brosnan James Bond thriller was titled after a fictional Soviet orbital EMP weapon?", answer: "GoldenEye" },
+          { type: "S", label: "Science", question: "What is the two-letter chemical symbol for gold on the periodic table, derived from Aurum?", answer: "Au" },
+          { type: "K", label: "Knowledge", question: "Which 14th-century Malian emperor devalued Cairo's gold market for a decade by distributing gold during his pilgrimage to Mecca?", answer: "Mansa Musa" }
+        ]
+      }
+    ];
+
+    let localVault = [];
+    let cardBuffer = { C: [], D: [], S: [], K: [], FIN: [] };
+    let activeCard = null;
+    let chosenLevel = null;
+    let isFetching = false;
+    let prefetchLock = false;
+
+    window.addEventListener('DOMContentLoaded', () => {
+      checkUrlParams();
+      initVault();
+      syncKeyStatus();
+      lucide.createIcons();
+      schedulePrefetch();
+    });
+
+    function cleanKey(raw) {
+      if (!raw) return "";
+      return raw.replace(/['"\s\r\n]/g, '').trim();
+    }
+
+    function checkUrlParams() {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const paramKey = cleanKey(urlParams.get('key') || urlParams.get('apiKey'));
+        if (paramKey && paramKey.length > 10) {
+          localStorage.setItem('cdsk_gemini_key', paramKey);
+          localStorage.setItem('cdsk_api_key', paramKey);
+          showToast("Gemini API Key activated from link!", "success");
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+      } catch(e) {}
+    }
+
+    function initVault() {
+      const saved = localStorage.getItem('cdsk_saved_vault');
+      if (saved) {
+        try {
+          localVault = JSON.parse(saved);
+        } catch(e) {
+          localVault = [...STARTER_PACK];
+        }
+      } else {
+        localVault = [...STARTER_PACK];
+        persistVault();
+      }
+      updateBufferUI();
+    }
+
+    function persistVault() {
+      localStorage.setItem('cdsk_saved_vault', JSON.stringify(localVault));
+      updateBufferUI();
+    }
+
+    function getSavedKey() {
+      return cleanKey(localStorage.getItem('cdsk_gemini_key') || localStorage.getItem('cdsk_api_key') || '');
+    }
+
+    function syncKeyStatus() {
+      const key = getSavedKey();
+      const dot = document.getElementById('deckStatusDot');
+      const label = document.getElementById('deckStatusLabel');
+      const subtitle = document.getElementById('apiKeyStatusSubtitle');
+
+      if (key && key.length > 10) {
+        dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse";
+        label.innerText = "Infinite Deck";
+        if (subtitle) subtitle.innerHTML = "Status: <span class='text-emerald-400 font-bold'>Infinite Mode Active (gemini-3.8-flash)</span>";
+        schedulePrefetch();
+      } else {
+        dot.className = "w-2.5 h-2.5 rounded-full bg-slate-500";
+        label.innerText = "Offline Vault";
+        if (subtitle) subtitle.innerHTML = "Status: <span class='text-slate-400 font-bold'>Offline Deck (Add Key to unlock infinite)</span>";
+      }
+    }
+
+    function updateBufferUI() {
+      const totalBuffered = Object.values(cardBuffer).reduce((a, b) => a + b.length, 0);
+      const counter = document.getElementById('bufferCounter');
+      const modalCount = document.getElementById('modalBufferCount');
+      const vaultCount = document.getElementById('modalVaultCount');
+
+      if (vaultCount) vaultCount.innerText = localVault.length;
+      if (modalCount) modalCount.innerText = totalBuffered;
+
+      if (totalBuffered > 0) {
+        counter.classList.remove('hidden');
+        counter.innerText = `⚡ ${totalBuffered} Ready`;
+      } else {
+        counter.classList.add('hidden');
+      }
+
+      ['C', 'D', 'S', 'K', 'FIN'].forEach(cat => {
+        const tag = document.getElementById(`bufTag-${cat}`);
+        if (tag) {
+          if (cardBuffer[cat] && cardBuffer[cat].length > 0) {
+            tag.classList.remove('hidden');
+          } else {
+            tag.classList.add('hidden');
+          }
+        }
+      });
+    }
+
+    function showToast(msg, type = "info") {
+      const toast = document.getElementById('statusToast');
+      const label = document.getElementById('toastMessage');
+      const icon = document.getElementById('toastIcon');
+
+      label.innerText = msg;
+      toast.className = "mt-2 p-3.5 rounded-2xl text-xs font-mono font-bold flex items-center justify-between border shadow-lg ";
+
+      if (type === "error") {
+        toast.className += "bg-deepRed border-red-500 text-white";
+        icon.setAttribute('data-lucide', 'alert-triangle');
+      } else if (type === "success") {
+        toast.className += "bg-emerald-950 border-emerald-600 text-emerald-200";
+        icon.setAttribute('data-lucide', 'check-circle-2');
+      } else {
+        toast.className += "bg-navySurface border-navyBorder text-sky-200";
+        icon.setAttribute('data-lucide', 'info');
+      }
+
+      toast.classList.remove('hidden');
+      lucide.createIcons();
+
+      setTimeout(() => {
+        hideToast();
+      }, 5000);
+    }
+
+    function hideToast() {
+      document.getElementById('statusToast').classList.add('hidden');
+    }
+
+    async function schedulePrefetch() {
+      const apiKey = getSavedKey();
+      if (!apiKey || apiKey.length < 10 || prefetchLock) return;
+
+      const categories = ['D', 'C', 'S', 'K', 'FIN'];
+      for (const cat of categories) {
+        if (cardBuffer[cat].length < 2) {
+          prefetchLock = true;
+          try {
+            const res = await callGeminiApi(cat, apiKey, true);
+            if (res && res.card) {
+              res.card._isAiGenerated = true;
+              cardBuffer[cat].push(res.card);
+              updateBufferUI();
+            }
+          } catch(e) {}
+          prefetchLock = false;
+          await new Promise(r => setTimeout(r, 600));
+        }
+      }
+    }
+
+    async function pickDeck(category, forceLive = false) {
+      if (isFetching) return;
+      playBeep(440, 'sine', '16n');
+
+      const apiKey = getSavedKey();
+
+      // If buffered card exists, draw with 0ms delay!
+      if (!forceLive && cardBuffer[category] && cardBuffer[category].length > 0) {
+        const bufferedCard = cardBuffer[category].shift();
+        localVault.unshift(bufferedCard);
+        persistVault();
+        renderCard(bufferedCard);
+        updateBufferUI();
+        setTimeout(schedulePrefetch, 200);
+        return;
+      }
+
+      // If buffer empty but key exists, do a live fetch
+      if (apiKey && apiKey.length > 10) {
+        setLoadingState(true, category);
+        const result = await callGeminiApi(category, apiKey, false);
+        setLoadingState(false, category);
+
+        if (result && result.card) {
+          const liveCard = result.card;
+          liveCard._isAiGenerated = true;
+          localVault.unshift(liveCard);
+          persistVault();
+          renderCard(liveCard);
+          setTimeout(schedulePrefetch, 400);
+          return;
+        } else {
+          showToast(result?.error || "Using offline backup card.", "error");
+        }
+      }
+
+      // Offline draw fallback
+      const matchingCards = localVault.filter(c => c.category === category);
+      if (matchingCards.length > 0) {
+        let pool = matchingCards;
+        if (activeCard && matchingCards.length > 1) {
+          pool = matchingCards.filter(c => c.id !== activeCard.id);
+        }
+        const randomCard = pool[Math.floor(Math.random() * pool.length)];
+        renderCard(randomCard);
+      } else {
+        showToast("No cards available in this category.", "error");
+      }
+    }
+
+    function redrawCurrentDeck() {
+      if (!activeCard) return;
+      pickDeck(activeCard.category, false);
+    }
+
+    function setLoadingState(loading, category) {
+      isFetching = loading;
+      const overlay = document.getElementById('cardLoadingOverlay');
+      const body = document.getElementById('cardContentBody');
+      const footer = document.getElementById('cardFooterControls');
+      const redrawIcon = document.getElementById('redrawIcon');
+      const redrawLabel = document.getElementById('redrawLabel');
+
+      if (loading) {
+        document.getElementById('viewDecks').classList.add('hidden');
+        document.getElementById('viewFinCard').classList.add('hidden');
+        document.getElementById('viewActiveCard').classList.remove('hidden');
+
+        document.getElementById('activeTopicTitle').innerText = "Pulling from Deck...";
+        document.getElementById('activeSubcategory').innerText = `Category [${category}]`;
+        document.getElementById('cardSourcePill').classList.add('hidden');
+
+        overlay.classList.remove('hidden');
+        overlay.classList.add('flex');
+        body.classList.add('hidden');
+        footer.classList.add('opacity-50', 'pointer-events-none');
+
+        if (redrawIcon) redrawIcon.classList.add('animate-spin');
+        if (redrawLabel) redrawLabel.innerText = "Generating...";
+      } else {
+        overlay.classList.add('hidden');
+        overlay.classList.remove('flex');
+        body.classList.remove('hidden');
+        footer.classList.remove('opacity-50', 'pointer-events-none');
+
+        if (redrawIcon) redrawIcon.classList.remove('animate-spin');
+        if (redrawLabel) redrawLabel.innerText = "Redraw Card";
+      }
+    }
+
+    /* Core Gemini API Call targeting gemini-3.8-flash */
+    async function callGeminiApi(category, apiKey, isBackground = false) {
+      const isFin = (category === 'FIN');
+
+      const systemPrompt = `You are the trivia calibration engine for the board game CDSK.
+
+CATEGORIES & TOPIC RULES:
+- C (Curious): Oddities, bizarre historical blunders, weird laws, solved/unsolved vanishings, audacious heists.
+- D (Delightful): Post-1990 video games (Soulsborne, Elden Ring, CS:GO, Dota 2, Halo, GTA, Witcher, CoD), 90s/2000s lyrical hip-hop, modern & folk Punjabi music (Chamkila, Sidhu Moose Wala, Karan Aujla, Diljit), Bollywood cult classics (Sholay, Gangs of Wasseypur, Satya).
+- S (Science): Astrophysics, extreme biology/predators, computer hardware/microchips, neurochemistry, extreme physics.
+- K (Knowledge): Ancient empires, chokepoint straits, major 20th-century geopolitical turning points, historic battles.
+- FIN: 4 rapid questions (1 C, 1 D, 1 S, 1 K) bound by a single unified theme.
+
+DIFFICULTY CURVE & CLUE RULES:
+- Levels 1-3: Accessible recall of genuine facts. NOT insulting, but approachable.
+- Levels 4-5: Solid conversational knowledge.
+- Levels 6-10 (CRITICAL LATERAL CLUE RULE):
+  * The question MUST contain a subtle, naturally embedded clue woven into the sentence.
+  * THE CLUE MUST NOT REQUIRE INSIDER DOMAIN KNOWLEDGE of the obscure topic!
+  * INSTEAD, USE LATERAL DEDUCTION: etymological roots (e.g., Latin/Greek words for red, window, water, star), everyday visual imagery, common homophones/puns, familiar mythology (e.g., sea god's trident), or widely known cultural metaphors.
+  * NEVER write "Hint:" or explicitly state that a clue is present. It must be woven into the sentence prose.
+Keep questions concise (1-2 sentences max). Respond strictly with valid JSON.`;
+
+      let userPrompt = "";
+      if (isFin) {
+        userPrompt = `Generate 1 fresh CDSK Finish Line / Endgame card in JSON format:
+{
+  "id": "FIN-${Date.now()}",
+  "category": "FIN",
+  "category_name": "Finish Line",
+  "theme": "Theme Name",
+  "questions": [
+    {"type": "C", "label": "Curious", "question": "Concise question", "answer": "Answer"},
+    {"type": "D", "label": "Delightful", "question": "Concise question", "answer": "Answer"},
+    {"type": "S", "label": "Science", "question": "Concise question", "answer": "Answer"},
+    {"type": "K", "label": "Knowledge", "question": "Concise question", "answer": "Answer"}
+  ]
+}`;
+      } else {
+        userPrompt = `Generate 1 calibrated 10-level CDSK card for category: ${category}.
+Remember: Levels 6-10 MUST use LATERAL DEDUCTIVE breadcrumbs (etymology, everyday metaphors, visual puns) inside the question sentence so non-experts can deduce it.
+JSON structure:
+{
+  "id": "${category}-${Date.now()}",
+  "category": "${category}",
+  "category_name": "Category Name",
+  "subcategory": "Subcategory Name",
+  "topic": "Creative Topic Title",
+  "levels": [
+    {"level": 1, "question": "...", "answer": "..."},
+    {"level": 2, "question": "...", "answer": "..."},
+    {"level": 3, "question": "...", "answer": "..."},
+    {"level": 4, "question": "...", "answer": "..."},
+    {"level": 5, "question": "...", "answer": "..."},
+    {"level": 6, "question": "...", "answer": "..."},
+    {"level": 7, "question": "...", "answer": "..."},
+    {"level": 8, "question": "...", "answer": "..."},
+    {"level": 9, "question": "...", "answer": "..."},
+    {"level": 10, "question": "...", "answer": "..."}
+  ]
+}`;
+      }
+
+      // Explicit target: gemini-3.8-flash, falling back to gemini-3.5-flash
+      const candidateModels = ["gemini-3.8-flash", "gemini-3.5-flash"];
+      let lastErrText = "";
+
+      for (const modelName of candidateModels) {
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+
+        try {
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: userPrompt }] }],
+              systemInstruction: { parts: [{ text: systemPrompt }] },
+              generationConfig: {
+                responseMimeType: "application/json",
+                temperature: 0.8,
+                maxOutputTokens: 1400
+              }
+            })
+          });
+
+          if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            lastErrText = `HTTP ${response.status}: ${errData.error?.message || 'API request failed'}`;
+            if (response.status === 404) {
+              continue; // Try next fallback model
+            }
+            return { error: lastErrText };
+          }
+
+          const result = await response.json();
+          const rawText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (!rawText) return { error: "Empty model response." };
+
+          let cleaned = rawText.trim();
+          if (cleaned.startsWith('```')) {
+            cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+          }
+
+          const parsed = JSON.parse(cleaned);
+          if (!parsed.id) parsed.id = `${category}-${Date.now()}`;
+          return { card: parsed };
+
+        } catch (err) {
+          lastErrText = err.message || "Failed to reach Gemini API.";
+        }
+      }
+
+      return { error: lastErrText || "Failed across candidate Gemini models." };
+    }
+
+    function renderCard(card) {
+      activeCard = card;
+      chosenLevel = null;
+
+      document.getElementById('viewDecks').classList.add('hidden');
+
+      // Finish Line Gauntlet View
+      if (card.category === 'FIN') {
+        document.getElementById('viewActiveCard').classList.add('hidden');
+        document.getElementById('viewFinCard').classList.remove('hidden');
+        document.getElementById('finThemeTitle').innerText = card.theme || "The 4-Way Challenge";
+
+        const qList = document.getElementById('finQuestionsList');
+        qList.innerHTML = card.questions.map((q) => `
+          <div class="p-3.5 rounded-2xl bg-black/70 border border-deepRed/40 flex flex-col gap-2">
+            <div class="flex items-center justify-between">
+              <span class="badge-${q.type} px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase">${q.type}: ${q.label || ''}</span>
+            </div>
+            <p class="text-xs sm:text-sm font-semibold text-slate-100">${q.question}</p>
+            <div>
+              <button onclick="this.nextElementSibling.classList.toggle('hidden'); this.classList.add('hidden');" type="button" class="unblockable-btn text-xs font-mono text-rose-400 hover:underline font-bold flex items-center gap-1">
+                <i data-lucide="eye" class="w-3.5 h-3.5 pointer-events-none"></i> Show Official Answer
+              </button>
+              <div class="hidden text-xs font-mono font-bold text-emerald-400 p-2.5 rounded-xl bg-emerald-950/60 border border-emerald-700/60 mt-1">
+                ${q.answer}
+              </div>
+            </div>
+          </div>
+        `).join('');
+        lucide.createIcons();
+        return;
+      }
+
+      // Standard 1-10 Card View
+      document.getElementById('viewFinCard').classList.add('hidden');
+      document.getElementById('viewActiveCard').classList.remove('hidden');
+
+      const shell = document.getElementById('cardShell');
+      shell.className = `p-5 sm:p-7 rounded-3xl bg-navySurface border glow-${card.category} transition-all flex flex-col justify-between min-h-[490px]`;
+
+      const badge = document.getElementById('activeBadge');
+      badge.className = `badge-${card.category} px-2.5 py-0.5 rounded-full text-[10px] font-mono font-black uppercase tracking-wider`;
+      badge.innerText = card.category;
+
+      const aiPill = document.getElementById('cardSourcePill');
+      if (card._isAiGenerated) {
+        aiPill.classList.remove('hidden');
+      } else {
+        aiPill.classList.add('hidden');
+      }
+
+      document.getElementById('activeSubcategory').innerText = card.subcategory || "CDSK Card";
+      document.getElementById('activeTopicTitle').innerText = card.topic;
+
+      // Reset level buttons
+      document.querySelectorAll('.lvl-btn').forEach(btn => {
+        btn.className = "lvl-btn unblockable-btn py-3 rounded-xl font-mono font-bold text-sm bg-[#00172E] border border-navyBorder text-slate-300 active:scale-95 transition";
+      });
+
+      document.getElementById('ratePromptHint').innerText = "Pick 1 – 10 below";
+      document.getElementById('levelSelectedTag').classList.add('hidden');
+      document.getElementById('questionDisplay').innerText = "Agree on your wager from 1 to 10 above to reveal the question.";
+      document.getElementById('questionDisplay').className = "text-base sm:text-lg font-medium text-slate-400 italic leading-relaxed";
+
+      document.getElementById('answerSection').classList.add('hidden');
+      document.getElementById('btnRevealAnswer').classList.remove('hidden');
+      document.getElementById('answerRevealedBox').classList.add('hidden');
+      document.getElementById('outcomeSection').classList.add('hidden');
+    }
+
+    function selectLevel(lvl) {
+      if (!activeCard || !activeCard.levels) return;
+      playBeep(320 + (lvl * 35), 'triangle', '16n');
+      chosenLevel = lvl;
+
+      document.querySelectorAll('.lvl-btn').forEach((btn, i) => {
+        if (i + 1 === lvl) {
+          btn.className = "lvl-btn unblockable-btn py-3 rounded-xl font-mono font-black text-base bg-goldAccent border border-yellow-200 text-black shadow-lg shadow-amber-900/60 scale-105 transition-transform";
+        } else {
+          btn.className = "lvl-btn unblockable-btn py-3 rounded-xl font-mono font-bold text-sm bg-[#00172E] border border-navyBorder text-slate-400 active:scale-95 transition";
+        }
+      });
+
+      const qObj = activeCard.levels.find(l => l.level === lvl) || activeCard.levels[lvl - 1];
+
+      const tag = document.getElementById('levelSelectedTag');
+      tag.classList.remove('hidden');
+      tag.innerText = `Level ${lvl} Question:`;
+
+      const qPrompt = document.getElementById('questionDisplay');
+      qPrompt.innerText = qObj.question;
+      qPrompt.className = "text-base sm:text-lg font-bold text-slate-100 leading-relaxed";
+
+      const descriptors = {
+        1: "Warmup Baseline", 2: "Surface Recall", 3: "Real Recall Test",
+        4: "Conversational Trivia", 5: "Enthusiast Fact", 6: "Deductive Lateral Clue",
+        7: "Deductive Lateral Clue", 8: "Deductive Lateral Clue", 9: "Expert Lateral Clue", 10: "Virtuoso Lateral Clue"
+      };
+      document.getElementById('ratePromptHint').innerText = descriptors[lvl] || `Level ${lvl}`;
+
+      document.getElementById('answerSection').classList.remove('hidden');
+      document.getElementById('btnRevealAnswer').classList.remove('hidden');
+      document.getElementById('answerRevealedBox').classList.add('hidden');
+      document.getElementById('answerRevealedText').innerText = qObj.answer;
+      document.getElementById('outcomeSection').classList.add('hidden');
+    }
+
+    function revealAnswer() {
+      playBeep(620, 'sine', '32n');
+      document.getElementById('btnRevealAnswer').classList.add('hidden');
+      document.getElementById('answerRevealedBox').classList.remove('hidden');
+      
+      const outcomeSection = document.getElementById('outcomeSection');
+      outcomeSection.classList.remove('hidden');
+      document.getElementById('btnCorrectOutcome').innerText = `Correct! (+${chosenLevel} on board)`;
+    }
+
+    function recordTurn(wasCorrect) {
+      if (wasCorrect) {
+        playBeep(880, 'sine', '16n');
+      } else {
+        playBeep(220, 'square', '16n');
+      }
+      returnToDecks();
+    }
+
+    function returnToDecks() {
+      playBeep(380, 'sine', '32n');
+      document.getElementById('viewActiveCard').classList.add('hidden');
+      document.getElementById('viewFinCard').classList.add('hidden');
+      document.getElementById('viewDecks').classList.remove('hidden');
+      activeCard = null;
+      schedulePrefetch();
+    }
+
+    function openKeyModal() {
+      const savedKey = getSavedKey();
+      document.getElementById('inputApiKey').value = savedKey;
+      document.getElementById('diagBox').classList.add('hidden');
+      updateBufferUI();
+      const modal = document.getElementById('keyModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeKeyModal() {
+      const modal = document.getElementById('keyModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function saveApiKey() {
+      const val = cleanKey(document.getElementById('inputApiKey').value);
+      if (val) {
+        localStorage.setItem('cdsk_gemini_key', val);
+        localStorage.setItem('cdsk_api_key', val);
+        showToast("Gemini API Key saved! Background buffer active.", "success");
+      }
+      syncKeyStatus();
+      closeKeyModal();
+    }
+
+    function clearApiKey() {
+      localStorage.removeItem('cdsk_gemini_key');
+      localStorage.removeItem('cdsk_api_key');
+      document.getElementById('inputApiKey').value = '';
+      cardBuffer = { C: [], D: [], S: [], K: [], FIN: [] };
+      showToast("API Key removed. Switched to offline mode.", "info");
+      syncKeyStatus();
+      closeKeyModal();
+    }
+
+    async function testApiConnection() {
+      const input = document.getElementById('inputApiKey');
+      const key = cleanKey(input.value);
+      const diagBox = document.getElementById('diagBox');
+      const diagBadge = document.getElementById('diagBadge');
+      const diagTitle = document.getElementById('diagTitle');
+      const diagDetails = document.getElementById('diagDetails');
+      const btn = document.getElementById('btnTestKey');
+      const icon = document.getElementById('testKeyIcon');
+
+      if (!key) {
+        diagBox.className = "mt-2.5 p-3 rounded-xl text-[11px] font-mono border bg-deepRed/40 border-red-500 text-rose-200";
+        diagBadge.innerText = "ERROR";
+        diagTitle.innerText = "Empty Key";
+        diagDetails.innerText = "Please paste an API key first.";
+        diagBox.classList.remove('hidden');
+        return;
+      }
+
+      btn.disabled = true;
+      icon.classList.add('animate-spin');
+      diagBox.className = "mt-2.5 p-3 rounded-xl text-[11px] font-mono border bg-slate-900 border-slate-700 text-slate-300";
+      diagBadge.innerText = "TESTING";
+      diagTitle.innerText = "Connecting to Google...";
+      diagDetails.innerText = "Sending ping to gemini-3.8-flash...";
+      diagBox.classList.remove('hidden');
+
+      const testModels = ["gemini-3.8-flash", "gemini-3.5-flash"];
+      let connectionSuccess = false;
+      let lastErrMsg = "";
+      let lastStatus = 0;
+
+      for (const m of testModels) {
+        try {
+          const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${key}`;
+          const resp = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: "ping" }] }]
+            })
+          });
+
+          const data = await resp.json().catch(() => ({}));
+
+          if (resp.ok) {
+            connectionSuccess = true;
+            diagBox.className = "mt-2.5 p-3 rounded-xl text-[11px] font-mono border bg-emerald-950/80 border-emerald-500 text-emerald-200";
+            diagBadge.innerText = "SUCCESS";
+            diagTitle.innerText = "Connection Verified!";
+            diagDetails.innerText = `Active model (${m}) is responding. Infinite deck ready.`;
+            localStorage.setItem('cdsk_gemini_key', key);
+            localStorage.setItem('cdsk_api_key', key);
+            syncKeyStatus();
+            break;
+          } else {
+            lastStatus = resp.status;
+            lastErrMsg = data.error?.message || `HTTP ${resp.status}`;
+            if (resp.status === 404) continue;
+            break;
+          }
+        } catch (networkErr) {
+          lastErrMsg = networkErr.message;
+          break;
+        }
+      }
+
+      if (!connectionSuccess) {
+        diagBox.className = "mt-2.5 p-3 rounded-xl text-[11px] font-mono border bg-deepRed/70 border-red-500 text-rose-100";
+        diagBadge.innerText = lastStatus ? `HTTP ${lastStatus}` : "ERROR";
+        diagTitle.innerText = "Google API Rejected Request";
+        diagDetails.innerText = `${lastErrMsg}`;
+      }
+
+      btn.disabled = false;
+      icon.classList.remove('animate-spin');
+    }
+  </script>
+</body>
+</html>
